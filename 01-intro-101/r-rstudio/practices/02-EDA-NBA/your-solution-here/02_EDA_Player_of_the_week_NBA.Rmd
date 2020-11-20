@@ -206,19 +206,46 @@ mutate(nba,
 table(nba$time)
 # El número de años que mas se repite es el 7, con 141 apariciones
 
-# Alternativa
-# Almacenar en una variable, las frecuencias absolutas de nba$time y aplica a dicha variable which.max
-
-# Dudas:  
-# Freq <- table(nna$time)
-# Freq = (which.max(freq)) Preguntar a Marco
-# Revisar documentacion which.max
-
 ```
 
 
 ## 3.8 La altura de los jugadores está expresada en pies (aquellas con guión) y cm. Convertir la altura expresada en pies a centimetros [https://www.piesametros.info/](https://www.piesametros.info/). Posteriormente, eliminar el texto “cm” de los datos de tipo altura y convertir la variable en numérica. Calcular media, desviación típica y boxplot.
+
 ```{r}
+
+# Pude realizar este apartado gracias a la ayuda de Juan
+
+# En primer lugar voy a reemplazar "cm" con un espacio y conservar los centímetros asignandolos a una nueva variable
+nba_cm <- filter(nba, str_detect(Height, "-") == F) %>% # str_detect lo que hará es detectar los patrones que contenidos, en  este caso "-"
+  mutate(Height=str_replace(Height, "cm", "")) # str_replace, reemplazara las coincidencias, con el mutate, obtengo 90 observaciones.
+
+
+# En segundo lugar cuando se detecte el patrón (-), se separará la variable en Pies y Pulgadas, la variable Height contendrá valores numéricos que convertirá a centímetros
+nba_pies <- filter(nba, str_detect(Height, "-") == T) %>%
+  separate(Height, c("Feet", "Inches"), sep = "-") %>% # separo en 2 columnas cuando me encuentrel el "-"
+  mutate(Height = as.numeric(Feet)*30.48 + as.numeric(Inches)*2.54) %>%
+  select(-Feet,-Inches) # Deselecciono ambas columnas
+
+# nba_cm contiene 90 obs y nba_pies 1055 sumando un total de 1145.
+# He realizado las separaciones correctamente sin embargo
+
+nba <- rbind(nba_cm, nba_pies)
+
+nba$Height <- as.numeric(nba$Height) # Transformo a valores numericos para poder trabajar en ellos:
+# Media:
+mean(nba$Height) # 201.02
+# Desviación típica
+sd(nba$Height) # 9.41
+# boxplot
+boxplot(nba$Height)
+
+
+# Importante esta bueno para ver todo lo referente a Manejo de strings, factores y fechas STRINGR: https://rstudio-pubs-static.s3.amazonaws.com/407286_15ef411dce584b5d9cad31fb21c68067.html#str_detect
+
+```
+
+```{r}
+# Pruebas y diferentes formas de abordar el ejercicio..
 unique(nba$Height) # Reviso los valores unicos
 str(nba$Height)
 
@@ -268,6 +295,11 @@ nba %>%
            str_replace_all("cm", "-")) %>%
   parse_number()
 
+
+# Otro intento : con separate separo en la columna Height por pies y pulgadas, sin embargo me vuelve Na los factores de Cm
+view(nba %>%
+  separate(Height, c("Feet", "Inches"), sep = "-")) 
+
 # DUDAS : - Puedo reemplazar "cm" y pensaba también hacerlo con el guión (pero no debo hacerlo con este ultimo).
 #         - Probablemente use un For solo que al intentarlo no estoy seguro de como separa los valores que expresados en pies de los de pulgadas, el salto - no me da.
 
@@ -278,7 +310,33 @@ nba %>%
 El peso de los jugadores está expresada en libras y kg. Convertir el peso expresado en kgs en libras [https://www.metric-conversions.org/es/peso/kilogramos-a-libras.htm](https://www.metric-conversions.org/es/peso/kilogramos-a-libras.htm). Convertir la variable en numérica.Calcular media, desviación típica y boxplot.
 ```{r}
 
-unique(nba$Weight)
+nba %>%
+  distinct(Weight) # nos devolverás los valores únicos, en este caso 96.
+
+nba %>%
+  filter(str_detect(Weight,"kg")==T) %>%
+  mutate(Weight=str_replace(Weight,"kg", ""),
+         Weight=as.numeric(Weight)*2.20) -> nba_kg # se habría realizado la conversión a Libras
+
+nba %>%
+  filter(str_detect(Weight, "kg") == F) -> nba_libras 
+
+# ambas variables nba_kg (90 obs) y nba_libras (1055) suman 1145 obs
+
+# Antes de unir los nuevos data frame con el original haré un respaldo
+
+nbaclean <- nba
+
+nba <- rbind(nba_kg, nba_libras)
+
+nba$Weight <- as.numeric(nba$Weight) # Transformo a valores numericos para poder trabajar en ellos:
+# Media:
+mean(nba$Weight) # 225.96
+# Desviación típica
+sd(nba$Weight) # 31.57
+# boxplot
+boxplot(nba$Weight)
+
 
 ```
 
@@ -287,8 +345,29 @@ unique(nba$Weight)
 ## 4.1 Fusionar las categorias de posición en el campo F,F-C y FC en la categoría genérica Forward. Fusionar las categorias G,G-F y GF en la categoria genérica Guard. Renombrar la categoría ‘PG’ como ‘Point Guard’, ‘SG’ como ‘Shooting Guard’, ‘SF’ como ‘Small Forward’, ‘PF’ como ‘Power Forward’ y ‘C’ como ‘Center’.
 ```{r}
 
+nba %>%
+  distinct(Position) # Encontramos 11 Posiciones
+
+# Problema.. se vuelve todo NA porque no distingue el string, preguntar a Marco
+
+#nba %>%
+ # mutate(Position = case_when(
+  #  Position == "F" | "F-C" | "FC" ~ " Forward",
+   # Position == "F-C" ~ "Forward",
+  #  Position  ))
+
+# nba %>%
+#mutate(Position = str_replace_all(Position, c(
+#  "^F$" = "Forward",
+#)))
+# 1. Fusionar F, F-C y FC y llamarlas Forward
+
+# attach nba 
+# Position[Position == "F"] = "Forward"
+
 
 ```
+
 
 
 ## 4.2 ¿En que posición ha sido más veces los jugadores de la semana nombrados?
@@ -358,26 +437,53 @@ nba %>%
 ## 5.2 Listar el nombre de los 10 jugadores más bajos que han sido nombrados alguna vez jugadores de la semana. No debe repetirse ningún nombre.
 ```{r}
 
-# Debo tener todas las estaturas convertidads
+head(nba.unique %>%
+  arrange(Height), n =10)
 
 ```
 
 
 ## 5.3 Listar el nombre de los 10 jugadores más altos que han sido nombrados y mostrar su altura. No debe repetirse ningún nombre.
 ```{r}
-
+tail(nba.unique %>%
+  arrange(Height), n =10)
 ```
 
 
 # 6 Eliminación de outliers.
 ## 6.1 Eliminar los outliers de la variable peso (Weight) y guardar en un data frame nba.avg
 ```{r}
+boxplot(nba.unique$Weight)
+
+ggplot(data = nba.unique, mapping = aes(x = Weight)) + 
+  geom_histogram(binwidth = 0.5)
+# Se puede evidenciar un vacío entre los pesos menores a 150, incluso podría incluirlo y por encima de los 300
+
+nba.avg <- nba.unique %>% 
+          filter(Weight>150 & Weight<300)
+
+
 
 ```
 
 
 ## 6.2 Comparar los boxplots de los datos originales en nba.unique y de los datos del peso de nba.avg
 ```{r}
+boxplot(nba.unique$Weight)
+
+boxplot(nba.avg$Weight)
+
+summary(nba.unique$Weight) 
+summary(nba.avg$Weight)
+
+
+# Otra manera de comparar
+
+nba.avg %>%
+  summarise(mean(Weight), min(Weight), max(Weight))
+
+nba.unique %>% 
+  summarise(mean(Weight), min(Weight), max(Weight))
 
 ```
 
@@ -385,8 +491,27 @@ nba %>%
 
 ## 6.3 Interpretar los resultados
 ```{r}
+# Nba.unique: observamos que la media está en 219 y el valor mínimo es de  150 y máximo de 325
+# Nba_avg : con la eliminación de los outliers observamos que la media se situa en 218.2, 0.8 menos, adicionalmente ahora el valor mínimo se encuentra en 163 y el máximo en 289
 
 ```
+
+
+Usaré el formato que estaba colocado anteriormente para la interpretación:
+Los elementos se han reducido de 274 a 270
+
+Además con el summary se pueden observar los siguientes cambios:
+
+- Valor Max de 325 a 289
+- el 1st cuartil 195 Invariable
+- la mediana 220 Invariable 
+- la media de 219 a 218.2
+- el 3er cuartil 240 invariable
+- el min de 150 a 163
+
+
+--------------------
+
 
 Con la eliminación de los outliers con índice a 150 y 272, con los pesos respetivos 300 y 500, se han reducido el numero de elementos en el segundo dataframe nba.avg. Los elementos se han reducido de 274 a 272
 
@@ -404,6 +529,42 @@ Además con el summary se pueden observar los siguientes cambios:
 - alto: los 50 jugadores más altos
 - normal: el resto de jugadores
 ```{r}
+# Inserto la nueva columna llamada "Altura" quedará dispuesta al final del DF
+nba.avg$Altura <- "normal"
+view(nba.avg) # Reviso y compruebo que se realizó correctamente
+
+# Obtengo los 50 más altos
+mas_altos <- mutate(nba.avg, Height) %>%
+  arrange(desc(Height)) %>%
+  slice_head(n = 50)
+# Obtengo los 50 más bajos
+mas_bajos <- mutate(nba.avg, Height) %>%
+  arrange(desc(Height)) %>%
+  slice_tail(n = 50)
+
+
+
+
+
+
+# Pedo ordernar por Height y luego pedir las primeras 50 columnas
+nba.avg %>%
+  arrange(desc(Height)) %>%
+  slice_head(n = 50)
+  
+nba.avg %>%
+  head(Altura, n = 50)
+
+
+select([1:50], Altura)
+
+arrange(nba.avg$Altura[1:50])
+
+Mas_altos <- head(arrange(nba.avg, desc(head), n = 50)
+arrange(nba.avg, desc(head)
+        
+
+
 
 ```
 
@@ -414,6 +575,11 @@ Además con el summary se pueden observar los siguientes cambios:
 - alto: los 50 jugadores con mayor peso
 - normal: el resto de jugadores
 ```{r}
+
+
+head(arrange(nba.avg, desc(Weight)), n = 50) # Tendriamos los 50 mas pesados
+tail(arrange(nba.avg, desc(Weight)), n = 50) 
+
 
 ```
 
