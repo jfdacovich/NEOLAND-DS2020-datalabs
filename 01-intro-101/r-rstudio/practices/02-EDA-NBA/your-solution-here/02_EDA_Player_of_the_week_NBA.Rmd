@@ -68,6 +68,8 @@ Para resolver la actividad, deberéis usar algunos comandos de R que quizás no 
 nba<-read.csv("NBA_player_of_the_week.csv",header = TRUE)
 ```
 
+En caso de tener `stringsAsFactors` = False debemos crear las categóricas después de con la función `asFactor`
+
 ```{r}
 # Cargo La libreria que voy a utilizar 
 library(tidyverse)
@@ -179,6 +181,8 @@ for (i in cols){
 # Puedo comprobar de diferentes maneras:
 
 # Puedo acceder a cada atributo de una variable a través de Levels y comprobar que no existen valores extraños, también podría revisar con la función Unique que me devolvería aquellos valores que no se encuentran duplicados.
+
+#table(is.na(nba$Height)) # podría revisar cada uno) solución Marco
 levels(nba$Height)
 levels(nba$Player)
 levels(nba$Position)
@@ -187,6 +191,7 @@ unique(nba$Team)
 levels(nba$Weight)
 
 ```
+
 
 ## 3.6 Calcular el número de anyos que pasan entre que salio el jugador elegido en el draft y la temporada en la que fue jugador de la semana. Denomina la variable tiempo.
 ```{r}
@@ -205,7 +210,28 @@ mutate(nba,
 ```{r}
 table(nba$time)
 # El número de años que mas se repite es el 7, con 141 apariciones
+```
 
+```{r}
+# ALTERNATIVA
+# con el df anterior calculamos la moda
+# Podemos crear la moda a través de una función ad-Hoc
+# creamos la funcion de Moda
+getmode <- function(v) {
+   uniqv <- unique(v)
+   uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+```
+```{r}
+# con el df anterior calculamos la moda
+getmode(draftPlayer_ordered$calcYears) # el anio mas repetido es 7
+```
+
+```{r}
+# también podría realizar lo mismo con la libreria (modeest) que de momento no ejecuto
+# install.packages('modeest')
+#library(modeest)
+# mlv(draftPlayer_ordered$calcYears, method = "mfv")
 ```
 
 
@@ -254,8 +280,10 @@ nbabk <- nba # Resplado la infomacion
 
 # Primer intento con Grepl
 
+# grepl() se usa para verificar si una palabra o expresión regular existe en una cadena o vector de caracteres. La función devuelve un vector VERDADERO / FALSO (o "Booleano").
+
 view(nba %>%
-  filter(!grepl("cm", Height))) # con esta op
+  filter(!grepl("cm", Height))) # !grepl par seleccionar oraciones que no coincidan 
 
 view(nba %>%
   filter(!grepl("-", Height)))
@@ -267,6 +295,8 @@ nba[!grepl("cm", nba$Height),]
 view(nba %>%
        mutate(Height = as.numeric(gsub("cm", "", Height)))) # me elimina los centimetros, sin embargo me hace NA a los pies
 
+#La función GSUB es una de las funciones que vienen por defecto en R para trabajar con texto. Lo que hace es buscar por patrones de texto dentro de cada uno de los elementos de un vector, para luego reemplezarlos con otro texto que queramos.
+
 # usando parse_number
 
 view(mutate(nba, Height = parse_number(Height)))
@@ -275,6 +305,7 @@ nba %>% mutate(Height = parse_character(Height))
 
 parse_number("206cm")
 
+# This drops any non-numeric characters before or after the first number
 
 # Otra 
 gsub("cm", "", as.character(nba$Height))
@@ -351,9 +382,9 @@ nba %>%
 # Problema.. se vuelve todo NA porque no distingue el string, preguntar a Marco
 
 #nba %>%
- # mutate(Position = case_when(
-  #  Position == "F" | "F-C" | "FC" ~ " Forward",
-   # Position == "F-C" ~ "Forward",
+  #mutate(Position = case_when(
+  #Position == "F" | "F-C" | "FC" ~ " Forward",
+  #Position == "F-C" ~ "Forward",
   #  Position  ))
 
 # nba %>%
@@ -368,6 +399,18 @@ nba %>%
 
 ```
 
+### Transformar los textos con mapvalue
+
+```{r}
+# Alternativa Marco
+library(plyr) # mapvalues...
+nba$Position<-mapvalues(nba$Position, from = c("F-C", "FC","G-F","GF"), to = c("F", "F","G","G"))
+nba$Position<-mapvalues(nba$Position, from = c("F", "G","PG","SG","SF","PF","C"), to = c("Forward", "Guard","Point Guard","Shooting Guard","Small Forward","Power Forward","Center"))
+position.sort <- sort( table(nba$Position), decreasing=TRUE )
+position.top <- position.sort[1]
+  position.top.name <- names( position.top )
+  position.top.name
+```
 
 
 ## 4.2 ¿En que posición ha sido más veces los jugadores de la semana nombrados?
@@ -438,7 +481,7 @@ nba %>%
 ```{r}
 
 head(nba.unique %>%
-  arrange(Height), n =10)
+  arrange(desc(Height)), n =10)
 
 ```
 
@@ -464,7 +507,14 @@ nba.avg <- nba.unique %>%
 
 
 
+
 ```
+
+```{r}
+# Alternativa:
+boxplot.stats(nba.unique$Weight)$out
+```
+
 
 
 ## 6.2 Comparar los boxplots de los datos originales en nba.unique y de los datos del peso de nba.avg
@@ -543,6 +593,16 @@ mas_bajos <- mutate(nba.avg, Height) %>%
   slice_tail(n = 50)
 
 
+# METODO ENRIQUE: top50_jugadores_bajos <- nba.unique[order(nba.unique$Height)[1:50],6] # creo un vector con los jugadores más bajos usando order de la varibale height y que guarde la columna 6 que es el nombre de los jugadores.
+#top50_jugadores_Altos<- nba.unique[order(nba.unique$Height, decreasing = TRUE)[1:50],6]
+#nba_pruebas <- nba
+#for (i in 1:nrow(nba)){ # el for se ejecuta en todas las filas y lo que hace es comprobar si el nombre del jugador de esa fila está en las listas top50_jugadores_Altos y top50_jugadores_bajos para asignar eso a la nueva variable altura.
+  if (nba$Player[i] %in% top50_jugadores_Altos){
+    nba$Altura[i] = "alto"
+  } else if (nba$Player[i] %in% top50_jugadores_bajos){
+    nba$Altura[i] = "bajo"
+  } else {nba$Altura[i] = "normal"}
+}
 
 
 
