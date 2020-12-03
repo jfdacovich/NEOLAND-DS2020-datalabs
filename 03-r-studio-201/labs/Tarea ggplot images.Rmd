@@ -1,0 +1,100 @@
+---
+title: "Ggplot Practice"
+author: "Jorge_Faieta_Dacovich - Neoland"
+date: "3/12/2020"
+output: html_document
+---
+
+## TAREA:
+
+Re-create the R code necessary to generate the following graphs.
+imagenes en la carpeta LAB
+
+```{r}
+# Cargamos la librería
+library(tidyverse)
+```
+
+```{r}
+# Cargamos el dataset con el que trabajaremos
+mpg
+```
+
+`rfds_01in40.png`
+
+```{r}
+# Primera imagen :
+
+# Evaluamos el tamaño o cilindrada del motor y las millas que recorre por galón 
+
+# Definimos la variable mapping como global para no tener que repetir el código como se muestra en la alternativa
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+  geom_point() + 
+  geom_smooth()
+
+# Alternativa
+ggplot(data = mpg) + 
+  geom_point(mapping = aes(x = displ, y = hwy)) +
+  geom_smooth(mapping = aes(x = displ, y = hwy))
+
+
+# Segunda imagen:
+
+# Seguimos evaluando el tamaño o la cilindrada del motor vs las millas que recorre por galón pero esta vez agrupamos por "drv" que sería el tipo transmisión: donde f = tracción delantera, r = tracción trasera, 4 = 4wd
+
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+  geom_point() + 
+  geom_smooth(mapping = aes(group=drv), se= F) # al colocar se= F estamos pidiendo que no aparezca el intervalo de confianza alrededor de nuestra línea
+
+```
+
+`rfds_01in41.png`
+
+```{r}
+# Tercera imagen:
+
+# Añadimos color por drv = tipo de transmisión y seguimos sin mostrar el intervalo de confianza en el geom_smooth
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy, col = drv)) + 
+  geom_point() + 
+  geom_smooth(se = F)
+
+
+# Cuarta imagen:
+
+# Añadimos color al gráfico de puntos definido por la dimensión drv
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) +
+  geom_point(mapping = aes(color = drv)) + 
+  geom_smooth(se = F)
+```
+
+`rfds_01in42.png`
+
+
+```{r}
+# Quinta imagen:
+
+# Seguimos con el mismo color en el gráfico de puntos, y en el geom_smooth añadimos linetype para representar las diferentes transmisiones.
+ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+  geom_point(mapping = aes(color = drv)) + 
+  geom_smooth(mapping = aes(linetype = drv), se = F)
+
+
+# Sexta imagen:
+
+# El gráfico de puntos representa las trasmisiones, tienen un borde de color blanco y "stroke" modifica el ancho de ese borde, la forma se define con "shape" encontré que a parti del número 21 son formas rellenas y con borde y se pueden modificar ambas
+ggplot(data = mpg, mapping = aes(x=displ, y = hwy) ) + 
+  geom_point(mapping = aes(fill = drv), size = 4, # el relleno vendrá dado por drv y su tamaño
+             shape = 21, col = "white", stroke = 3)
+
+
+# Infomación shape:
+https://ggplot2.tidyverse.org/reference/scale_shape.html
+# Informacion geom_point:
+https://ggplot2.tidyverse.org/reference/geom_point.html
+
+
+# ggplot(data = mpg, mapping = aes(x = displ, y = hwy)) + 
+#  geom_point(mapping = aes(fill = drv), col = "white",size =  4) me da todo blanco
+```
+
+
