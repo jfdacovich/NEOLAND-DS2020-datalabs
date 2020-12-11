@@ -701,7 +701,7 @@ boxplot(nba.unique$Weight~nba.unique$Altura)
 
 ## 7.5 Hacer un listado con el nombre de jugadores que tienen una altura ‘normal’ y un peso ‘alto’. Ordenar alfabéticamente por nombre.
 ```{r}
-sort(nba.unique[(nba.unique$Altura == "normal") & (nba.unique$Peso == "alto"),]$Player)
+sort(nba.unique[(nba.unique$Altura == "normal") & (nba.unique$Peso == "alto"),]$Player) 
 ```
 
 -----NO REALIZAR ESTE APARTADO ------
