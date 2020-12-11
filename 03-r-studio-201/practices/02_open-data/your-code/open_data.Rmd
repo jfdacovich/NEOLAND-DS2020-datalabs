@@ -1,0 +1,385 @@
+---
+title: "Calidad del aire Gijón - actividad 3"
+author: "nombre_apellidos"
+Date: "Noviembre, 2020"
+output:
+  html_document:
+  fig_width: 10
+fig_height: 7
+toc: yes
+number_sections : yes
+code_folding: show
+---
+
+# Contexto - 
+A partir de los datos abiertos de contaminación de las estaciones meteorológicas de Gijón:
+- Hacer un estudio sobre los datos con el fin de conocer si existen diferencias significativas entre estaciones.
+- Hacer un forecast de evolución de un par de indicadores en una de las estaciones que escojas.
+
+Podrás encontrar la información en la dirección [http://transparencia.gijon.es](http://transparencia.gijon.es)
+
+Ejemplos:
+- Dataset CSV, JSON, XML ...
+CSV: http://opendata.gijon.es/descargar.php?id=1&tipo=CSV
+
+Se procederá en el siguiente orden:
+1. Carga de librerias y Dataset
+2. Limpieza del dataset
+3. EDA (Exploratory Data Analysis)
+4. Visualización de las medias de los valores en las diferentes estaciones
+5. Valorar las diferencias estadistícas con t-test, Anova
+6. Realizar un forecast para dos métricas significativas (opcional) - ARIMA / FORECAST
+
+## 1. Instalación y Carga de las librerías
+
+```{r}
+# Carga de las librerías
+library(lubridate)
+library(tidyverse)
+#library(leaflet)
+#library(dplyr)
+#library(ggplot2)
+#library(RColorBrewer)
+#library(tidyr)
+#library(fmsb)
+```
+
+## 1.1 Carga del dataset y análisis
+
+El dataset disponible y actualizado cada hora reportando los datos de los últimos 7 días, se encuentra disponible en la página web de Datos Abierto del ayuntamiento de Gijón. Asimismo encontramos los datasets de las estaciones, parámetros utilizados y datos de los últimos 18 años. [Catálogo de datos](http://transparencia.gijon.es/page/1808-catalogo-de-datos)
+
+```{r, message = FALSE, echo = FALSE}
+# Creamos el dataset del fichero de las estaciones de Gijon de los últimos 7 días (actualizado a fecha 8 de abril)
+
+# Observar si existe un formato fecha y time...para cálculo del time-series
+dataset_gijon <- read.csv("http://opendata.gijon.es/descargar.php?id=1&tipo=CSV", encoding = 'UTF-8', stringsAsFactors = FALSE)
+
+# Veamos los 10 primeros resultados
+head(dataset_gijon[1:8], 10)
+head(dataset_gijon[9:17], 10)
+head(dataset_gijon[18:22], 10)
+
+# Totalizamos los datos resultantes
+dim(dataset_gijon)
+```
+
+
+```{r}
+# Realizamos una copia del dataset original y con un header personalizado sin caracteres especiales
+datasetHeader <- c("EstacionID",
+                   "EstacionName","Lat","Lon",
+                   "Fecha_UTC","Periodo",
+                   "SO2","NO","NO2","CO","PM10","O3","dd","vv",
+                   "TMP","HR","PRB","RS","LL","BEN",
+                   "TOL","MXIL","PM25"
+                   )
+
+colnames(dataset_gijon) <- c(datasetHeader)
+
+# Trabajaremos con el dataset `gijon_lastWeek`
+gijon_lastWeek <- dataset_gijon                                     
+                                     
+# Analizamos las diferentes estaciones y las enumeramos
+table(gijon_lastWeek$EstacionID)
+table(gijon_lastWeek$EstacionName)
+
+# Convertimos en categóricas la Estación o ID
+gijon_lastWeek$EstacionID = as.numeric(gijon_lastWeek$EstacionID)
+
+# Comprobamos nuevamente los resultados
+str(gijon_lastWeek)
+```
+
+
+### Tratamiento de fechas
+
+```{r}
+# Comenzamos con la transformación de la columna fecha y su formato
+# anyo = Y
+# mes = m
+# day = d
+# Hour = H
+# Minute = M
+# Segundos = S
+
+gijon_lastWeek$Fecha_UTC <- ymd(gijon_lastWeek$Fecha_UTC, tz = "Europe/Madrid")
+
+
+gijon_lastWeek$Date <- format(gijon_lastWeek$Fecha_UTC, "%Y-%m-%d")
+
+# Creación de la variable Tiempo
+
+gijon_lastWeek$Time <- format(gijon_lastWeek$Fecha_UTC, "%T")
+
+# Este formato tiene un formato calendar-time
+gijon_lastWeek$DatePOSIXct <- as.POSIXct(gijon_lastWeek$Date, format = "%Y-%m-%d")
+
+# Alternativa con POSIXlt (lista de vectores y al parecer debería ser Human-friendly)
+gijon_lastWeek$DatePOSIXlt <- as.POSIXlt(gijon_lastWeek$Date, format = "%Y-%m-%d")
+
+
+```
+
+### Creación de las variables requeridas:
+
+### Day, Month, Year, Weekday
+
+```{r}
+
+# Day:
+gijon_lastWeek$Day <- format(gijon_lastWeek$Fecha_UTC, "%d")
+
+# Month:
+gijon_lastWeek$Month <- format(gijon_lastWeek$Fecha_UTC, "%m")
+
+# Year:
+gijon_lastWeek$Year <- format(gijon_lastWeek$Fecha_UTC, "%Y")
+
+# Weekday:
+gijon_lastWeek$Weekday <- format(gijon_lastWeek$Fecha_UTC, "%A") 
+
+```
+
+# 2.Limpieza del dataset
+
+Verificamos la presencia de valores nulos o missing
+
+Podemos observar que el 28.51 % de valores que encontramos en el Dataset son `Na`;
+8909 sobre un total de 31248 observaciones.
+15 Columnas con missing values:
+   - 3 Columnas con un 16.66 a 16.86% (SO2, O3, PM10)
+   - 1 Columna con un 50% (CO)
+   - 8 Columnas con un 66.66 a 66.96% (dd, vv, TMP, HR, PRB, RS, LL, PM25)
+   - 3 Columnas con un 83.33 % (BEN,TOL, MXIL)
+
+Las últimas 3 componen: 
+  - Benceno: compuesto orgánico volátil
+  - Tolueno: compuesto orgánico volátil cuyos principales focos de emisión son las gasolinas y el uso de disolventes para pinturas, revestimientos,etc.
+  - Mxileno: compuesto orgánico volátil compuesto orgánico volátil cuyos principales focos de emisión son las gasolinas y el uso de disolventes para pinturas, revestimientos,etc.
+
+```{r}
+# Tabla de Frecuencias
+table(is.na(gijon_lastWeek))
+
+# Tabla de Frecuencias relativa
+
+prop.table(table(is.na(gijon_lastWeek)))*100
+
+# Total de missing values y/o Na:
+sum(is.na(gijon_lastWeek))
+
+
+# Total de missing values y/o Na por columna:
+gijon_lastWeek %>% 
+  summarise_all(~ sum(is.na(.))) %>%
+  select(SO2, CO, PM10, O3, dd, vv, TMP, HR, PRB, RS, LL, BEN, TOL, MXIL, PM25, everything())
+
+# Obtenemos las proporciones de missing values por columnas:
+print(colMeans(is.na(gijon_lastWeek))*100)
+
+# * Dato importanteLa la media entre valores 1 y 0 (TRUE y FALSE de is.na) da la proporción de los valores TRUE
+#   es decir los valores que son NA.
+
+```
+
+Analizo la relación de las variables antes mencionadas y observo que:
+
+Comparten la misma cantidad de valores perdidos en el año 2020, mes 12 y 11: 672 observaciones
+                                                      año 2015, mes 11 y 10: 168 observaciones
+La presencia de estos hidrocarburos está fundamentalmente influenciada por actividades en las que se empleen disolventes orgánicos
+
+(https://www.miteco.gob.es/es/calidad-y-evaluacion-ambiental/temas/atmosfera-y-calidad-del-aire/emisiones/act-emis/compuestos_organicos_volatiles.aspx)
+
+```{r}
+
+# Agrupo las variable por año y mes y cuento las observaciones, lo hago de forma descendiente ya que conozco que hay gran cantidad de valores perdidos
+
+gijon_lastWeek %>%
+  group_by(Year,Month) %>%
+  count(MXIL) %>%
+  arrange(desc(n))
+
+gijon_lastWeek %>%
+  group_by(Year,Month) %>%
+  count(BEN) %>%
+  arrange(desc(n))
+
+gijon_lastWeek %>%
+  group_by(Year,Month) %>%
+  count(TOL) %>%
+  arrange(desc(n))
+# Visualizo las variables para detectar alguna relación
+
+ggplot(data = gijon_lastWeek, 
+  mapping = aes(x = TOL, y = MXIL)) +
+  geom_point(na.rm = T)
+
+ggplot(data = gijon_lastWeek, 
+  mapping = aes(x = TOL, y = BEN)) +
+  geom_point(na.rm = T)
+
+ggplot(data = gijon_lastWeek, 
+  mapping = aes(x = MXIL, y = BEN)) +
+  geom_point(na.rm = T)
+
+```
+Elimino las Variables de las cuales no podré obtener información alguna: 
+
+```{r}
+gijon_lastWeek$BEN = NULL
+gijon_lastWeek$MXIL = NULL
+gijon_lastWeek$TOL = NULL
+```
+
+Analizo la variable `Year`, ya que detecté que habían datos que correspondían al año 2015:
+
+2015 contiene 168 Observaciones, un 16% sobre el total
+Este año solo hace referencia a la data extraída de la estación `Santa Barbara` 
+
+```{r}
+gijon_lastWeek %>%
+  group_by(Year) %>%
+  summarise(count = n())
+
+# Solo la estación Santa Bárbara tiene valores del año 2015
+
+gijon_lastWeek %>%
+  group_by(EstacionName) %>%
+  filter(Year == 2015)
+
+ # qplot(Date, Year, data=gijon_lastWeek, geom="point", color=Year)
+
+```
+Hago un respaldo del Data set para hacer pruebas:
+
+Existen dos alternativas: a) Que los datos tomados en la estación `Santa Barbara` sean del 2015 o hayan sido registradas por erro en ese anyo:
+
+Pruebas: 
+
+Eliminaré las filas que contienen observaciones del año 2015 y lo agrupare en el dataser `gijon_lastWeekPruebasYear`
+Cambiaré al anyo 2020 todos los valores y lo agruparé en el dataset `gijon_lastWeek_act`
+
+```{r}
+gijon_lastWeekPruebasYear <- gijon_lastWeek
+
+# Me quedaré solo con los valores tomados en el año 2020
+gijon_lastWeekPruebasYear %>%
+  filter(Year == 2020) -> gijon_lastWeekPruebasYear
+
+# Me estaría quedando con 840 observaciones, pero desaparecería la estación Santa Barbara
+gijon_lastWeekPruebasYear %>%
+  group_by(Year) %>%
+  summarise(count = n())
+
+# ----------------------
+
+# Asignaré los valores registrados en 2015 al 2020
+
+str(gijon_lastWeek_act)
+
+gijon_lastWeek_act <- gijon_lastWeek
+gijon_lastWeek_act$Year[gijon_lastWeek_act$Year == "2015"] = "2020"
+
+# Compruebo
+
+gijon_lastWeek_act %>%
+  group_by(Year) %>%
+  summarise(count = n())
+
+```
+
+Evaluación y limpieza de cada observación (continuaré con el Dataset `gijon_lastWeek_act`:
+
+`Estación ID` 
+- Código que identifica la estación integrada en la Red de Vigilancia de la Contaminación Atmosférica de Gijón.
+- De momento no realizaré cambios en esta variable
+
+```{r}
+gijon_lastWeek_act %>%
+  group_by(EstacionID, EstacionName) %>%
+  summarise(count = n())
+```
+
+`EstacionName`
+
+La componen seis estaciones, todas con la misma cantidad de observaciones
+
+```{r}
+# Compruebo que las latitudes y longitudes sean diferentes para cada una de las estaciones
+gijon_lastWeek_act %>%
+  group_by(EstacionName, Lat, Lon) %>%
+  summarise(count = n())
+```
+
+`Perido`:
+
+No tengo muy claro la información que contiene esta variable sin embargo podemos ver que cada estacion contiene 24 periodos
+
+De momento dejare esta variable al no estar seguro del criterio de agrupacion
+
+```{r}
+
+gijon_lastWeek_act %>%
+  group_by(EstacionName, Periodo) %>%
+  summarise(count = n())
+
+```
+
+SO2: Dioxido de Azufre:
+Valores missing: 16.66% , 168 Obs
+Media: 3.138095
+Valor Maximo: 17
+Valor minimo: 1
+Indices (https://www.miteco.gob.es/images/es/informeevaluacioncalidadaireespana2019_tcm30-510616.pdf)
+La mayor parte de las observaciones aprox un 80% se encuentra entre 1 y 4
+
+Imputamos los Na por la media:
+Tras la imputacion el valor medio se mantiene: 3.138
+
+```{r}
+# Proporción de valores perdidos y/o Na
+prop.table(table(is.na(gijon_lastWeek_act$SO2)))*100
+
+# Observaciones que van desde el numero 1 al 17
+gijon_lastWeek_act %>%
+  arrange(SO2) %>%
+  distinct(SO2)
+
+# Reviso como están distribuidas las observaciones
+prop.table(table(gijon_lastWeek_act$SO2))*100
+
+# Resumen de las observaciones:
+
+gijon_lastWeek_act %>% 
+  summarise(n = n_distinct(SO2),
+            na = sum(is.na(SO2)),
+            media = mean(SO2, na.rm = T),
+            ValorMax = max(SO2, na.rm = T),
+            ValorMin = min(SO2, na.rm = T))
+
+# También las puedo obtener a través de un summary
+summary(gijon_lastWeek_act$SO2)
+
+# Utilizo un polígono de frecuencia para observar el comportamiento de los datos
+ggplot(data = gijon_lastWeek_act, 
+       mapping = aes(x = SO2))+
+  geom_freqpoly(binwidth = 0.01, na.rm = T)
+
+# Imputaremos los valores NA a través de la media:
+
+gijon_lastWeek_act <- gijon_lastWeek_act %>%
+  mutate(SO2
+         = replace(SO2,
+                   is.na(SO2),
+                   mean(SO2, na.rm = TRUE)))
+
+# Compruebo si hubo alteraciones significativas, tras la imputacion:
+summary(gijon_lastWeek_act$SO2)
+
+```
+
+
+
+
+
+

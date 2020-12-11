@@ -70,6 +70,13 @@ nba<-read.csv("NBA_player_of_the_week.csv",header = TRUE)
 
 En caso de tener `stringsAsFactors` = False debemos crear las categóricas después de con la función `asFactor`
 
+Por ejemplo: nba$Height <- as.factor(nba$Height)
+nba$Player <- as.factor(nba$Player)
+nba$Position <- as.factor(nba$Position)
+nba$Season <- as.factor(nba$Season)
+nba$Team <- as.factor(nba$Team)
+nba$Weight <- as.factor(nba$Weight
+
 ```{r}
 # Cargo La libreria que voy a utilizar 
 library(tidyverse)
@@ -182,7 +189,8 @@ for (i in cols){
 
 # Puedo acceder a cada atributo de una variable a través de Levels y comprobar que no existen valores extraños, también podría revisar con la función Unique que me devolvería aquellos valores que no se encuentran duplicados.
 
-#table(is.na(nba$Height)) # podría revisar cada uno) solución Marco
+table(is.na(nba$Height)) # podría revisar cada uno) solución Marco
+
 levels(nba$Height)
 levels(nba$Player)
 levels(nba$Position)
@@ -190,6 +198,21 @@ levels(nba$Season)
 unique(nba$Team)
 levels(nba$Weight)
 
+
+table(nba$Height[nba$Height == "" || NA]) # Me devolverá una tabla con valores cero si no encuentra valores vacíos o NA
+summary(nba$Height[nba$Height == "" || NA]) # 1145 na
+
+```
+
+```{r}
+# Alternativa para ver en bloque los valores nulos:
+table(c(nba$Height, nba$Player, nba$Position, nba$Season, nba$Team, nba$Weight) == "")
+
+# Puedo utilizar también **summary(c(factores) != "") con la misma regla anterior, el resultado será True si no encuentra valores vacíos
+summary(c(nba$Height, nba$Player, nba$Position, nba$Season, nba$Team, nba$Weight) != "")
+
+# También se podría realizar con ifelse enviando unas informaciones
+table(ifelse(c(nba$Height, nba$Player, nba$Position, nba$Season, nba$Team, nba$Weight) != "", "Bien no hay campos vacíos", "Hay valores vacíos"))
 ```
 
 
@@ -202,7 +225,6 @@ mutate(nba,
        ) -> nba # asigno los resultados al data frame 
 
 # nba$time =  y la diferencia entre las variables
-
 ```
 
 
@@ -210,28 +232,24 @@ mutate(nba,
 ```{r}
 table(nba$time)
 # El número de años que mas se repite es el 7, con 141 apariciones
-```
 
-```{r}
-# ALTERNATIVA
-# con el df anterior calculamos la moda
-# Podemos crear la moda a través de una función ad-Hoc
-# creamos la funcion de Moda
-getmode <- function(v) {
-   uniqv <- unique(v)
-   uniqv[which.max(tabulate(match(v, uniqv)))]
+# Alternativa
+getmode <- function(v){
+  uniqv <- unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
 }
-```
-```{r}
-# con el df anterior calculamos la moda
-getmode(draftPlayer_ordered$calcYears) # el anio mas repetido es 7
+
+getmode(nba$time) # El año más repetido es el 7
 ```
 
 ```{r}
 # también podría realizar lo mismo con la libreria (modeest) que de momento no ejecuto
 # install.packages('modeest')
-#library(modeest)
-# mlv(draftPlayer_ordered$calcYears, method = "mfv")
+library(modeest)
+ mlv(nba$time, method = "mfv")
+ 
+ # con un summary podemos observar los mínimos y máximos, la mediana, los quantiles
+ summary(nba$time)
 ```
 
 
@@ -271,6 +289,17 @@ boxplot(nba$Height)
 ```
 
 ```{r}
+# Alternativas:
+
+#     Contando valores que incluyen el guión:
+table(stringr::str_count(nba$Height, pattern = "-"))
+#     Con la función stringr::str_replace efectuamos la sustitución de los decimales "." y lo almacenamos con la variable heightFt
+# Height <- stringr::str_replace(Height, pattern = "-", ".")
+# head(Height) # comprobamos si están realizados los cambios
+
+
+
+
 # Pruebas y diferentes formas de abordar el ejercicio..
 unique(nba$Height) # Reviso los valores unicos
 str(nba$Height)
@@ -404,19 +433,21 @@ nba %>%
 ```{r}
 # Alternativa Marco
 library(plyr) # mapvalues...
-nba$Position<-mapvalues(nba$Position, from = c("F-C", "FC","G-F","GF"), to = c("F", "F","G","G"))
-nba$Position<-mapvalues(nba$Position, from = c("F", "G","PG","SG","SF","PF","C"), to = c("Forward", "Guard","Point Guard","Shooting Guard","Small Forward","Power Forward","Center"))
+nba$Position<-plyr::mapvalues(nba$Position, from = c("F-C", "FC","G-F","GF"), to = c("F", "F","G","G"))
+nba$Position<-plyr::mapvalues(nba$Position, from = c("F", "G","PG","SG","SF","PF","C"), to = c("Forward", "Guard","Point Guard","Shooting Guard","Small Forward","Power Forward","Center"))
 position.sort <- sort( table(nba$Position), decreasing=TRUE )
 position.top <- position.sort[1]
   position.top.name <- names( position.top )
   position.top.name
+  
+view(nba)
 ```
 
 
 ## 4.2 ¿En que posición ha sido más veces los jugadores de la semana nombrados?
 ```{r}
 table(nba$Position) #La posición que más han sido nombrados los jugadores de la semana es G
-round(prop.table(table(nba$Position)),2)*100 # El 16% de los jugadores han jugado como Guard, y el 14% lo ha ganado jugando como Shooting Guard y Center
+round(prop.table(table(nba$Position)),2)*100 # El 20% de los jugadores han jugado como Guard, y el 14% lo ha ganado jugando como Shooting Guard y Center
 ```
 
 
@@ -488,8 +519,8 @@ head(nba.unique %>%
 
 ## 5.3 Listar el nombre de los 10 jugadores más altos que han sido nombrados y mostrar su altura. No debe repetirse ningún nombre.
 ```{r}
-tail(nba.unique %>%
-  arrange(Height), n =10)
+nba.unique %>%
+  arrange(desc(Height), n =10)
 ```
 
 
@@ -504,15 +535,11 @@ ggplot(data = nba.unique, mapping = aes(x = Weight)) +
 
 nba.avg <- nba.unique %>% 
           filter(Weight>150 & Weight<300)
-
-
-
-
 ```
 
 ```{r}
 # Alternativa:
-boxplot.stats(nba.unique$Weight)$out
+boxplot.stats(nba.unique$Weight)$out # Devuelve los outliers
 ```
 
 
@@ -593,10 +620,11 @@ mas_bajos <- mutate(nba.avg, Height) %>%
   slice_tail(n = 50)
 
 
-# METODO ENRIQUE: top50_jugadores_bajos <- nba.unique[order(nba.unique$Height)[1:50],6] # creo un vector con los jugadores más bajos usando order de la varibale height y que guarde la columna 6 que es el nombre de los jugadores.
-#top50_jugadores_Altos<- nba.unique[order(nba.unique$Height, decreasing = TRUE)[1:50],6]
-#nba_pruebas <- nba
-#for (i in 1:nrow(nba)){ # el for se ejecuta en todas las filas y lo que hace es comprobar si el nombre del jugador de esa fila está en las listas top50_jugadores_Altos y top50_jugadores_bajos para asignar eso a la nueva variable altura.
+# METODO ENRIQUE: 
+top50_jugadores_bajos <- nba.unique[order(nba.unique$Height)[1:50],6] # creo un vector con los jugadores más bajos usando order de la varibale height y que guarde la columna 6 que es el nombre de los jugadores.
+top50_jugadores_Altos<- nba.unique[order(nba.unique$Height, decreasing = TRUE)[1:50],6]
+nba_pruebas <- nba
+for (i in 1:nrow(nba)){ # el for se ejecuta en todas las filas y lo que hace es comprobar si el nombre del jugador de esa fila está en las listas top50_jugadores_Altos y top50_jugadores_bajos para asignar eso a la nueva variable altura.
   if (nba$Player[i] %in% top50_jugadores_Altos){
     nba$Altura[i] = "alto"
   } else if (nba$Player[i] %in% top50_jugadores_bajos){
@@ -604,27 +632,13 @@ mas_bajos <- mutate(nba.avg, Height) %>%
   } else {nba$Altura[i] = "normal"}
 }
 
-
-
-
-# Pedo ordernar por Height y luego pedir las primeras 50 columnas
-nba.avg %>%
-  arrange(desc(Height)) %>%
-  slice_head(n = 50)
-  
-nba.avg %>%
-  head(Altura, n = 50)
-
-
-select([1:50], Altura)
-
-arrange(nba.avg$Altura[1:50])
-
-Mas_altos <- head(arrange(nba.avg, desc(head), n = 50)
-arrange(nba.avg, desc(head)
-        
-
-
+for (i in 1:nrow(nba.unique)){
+  if (nba.unique$Player[i] %in% top50_jugadores_Altos){
+    nba.unique$Altura[i] = "alto"
+  } else if (nba.unique$Player[i] %in% top50_jugadores_bajos){
+    nba.unique$Altura[i] = "bajo"
+  } else (nba.unique$Altura[i] = "normal")
+}
 
 ```
 
@@ -635,11 +649,24 @@ arrange(nba.avg, desc(head)
 - alto: los 50 jugadores con mayor peso
 - normal: el resto de jugadores
 ```{r}
-
-
-head(arrange(nba.avg, desc(Weight)), n = 50) # Tendriamos los 50 mas pesados
-tail(arrange(nba.avg, desc(Weight)), n = 50) 
-
+# Metodo Enrique
+top50_jugadores_menorpeso <- nba.unique[order(nba.unique$Weight)[1:50],6]
+top50_jugadores_mayorpeso<- nba.unique[order(nba.unique$Weight, decreasing = TRUE)[1:50],6]
+# aquí eh hecho lo mismo que en el anterior pero con la variable Weight
+for (i in 1:nrow(nba)){
+    if (nba$Player[i] %in% top50_jugadores_mayorpeso){
+    nba$Peso[i] = "alto"
+  } else if (nba$Player[i] %in% top50_jugadores_menorpeso){
+    nba$Peso[i] = "bajo"
+  } else {nba$Peso[i] = "normal"}
+}
+for (i in 1:nrow(nba.unique)){
+  if (nba.unique$Player[i] %in% top50_jugadores_mayorpeso){
+    nba.unique$Peso[i] = "alto"
+  } else if (nba.unique$Player[i] %in% top50_jugadores_menorpeso){
+    nba.unique$Peso[i] = "bajo"
+  } else {nba.unique$Peso[i] = "normal"}
+}
 
 ```
 
@@ -647,19 +674,34 @@ tail(arrange(nba.avg, desc(Weight)), n = 50)
 
 ## 7.3 Calcular la media y desviación típica del peso (Weight) según la clasificación de altura de los jugadores.
 ```{r}
+# Media del peso según la altura de los jugadores
+nba.unique %>%
+  group_by(Altura) %>%
+  summarise(mean(Weight)) 
+
+# Desviación típica según la altura de los jugadores
+nba.unique %>%
+  group_by(Altura) %>%
+  summarise(sd(Weight))
+
+# Alternativa:
+# ddply(nba.unique, ~Altura, summarise, mean = mean(Weight), sd = sd(Weight))
 
 ```
 
 
 ## 7.4 Realizar un boxplot del peso (Weight) según la clasificación de altura del jugador. Los boxplots deben estar ordenados de menos a mayor altura.
 ```{r}
+nba.unique$Altura = factor(nba.unique$Altura, levels = c("bajo", "normal", "alto"))
+
+boxplot(nba.unique$Weight~nba.unique$Altura)
 
 ```
 
 
 ## 7.5 Hacer un listado con el nombre de jugadores que tienen una altura ‘normal’ y un peso ‘alto’. Ordenar alfabéticamente por nombre.
 ```{r}
-
+sort(nba.unique[(nba.unique$Altura == "normal") & (nba.unique$Peso == "alto"),]$Player)
 ```
 
 -----NO REALIZAR ESTE APARTADO ------
