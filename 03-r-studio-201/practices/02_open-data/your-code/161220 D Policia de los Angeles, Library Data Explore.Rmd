@@ -1,0 +1,61 @@
+---
+title: "Untitled"
+author: "Jorge_Faieta_Dacovich - Neoland"
+date: "16/12/2020"
+output: html_document
+---
+
+```{r}
+Police <- read.csv("/Users/victoriasofia93/Desktop/Clases/R studio/Clases R D/LAPD_Calls_for_Service_2010.csv")
+Police
+```
+
+```{r}
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+Resumen(Police)
+prop.table(table(is.na(Police)))*100
+```
+
+```{r}
+Police %>%
+  group_by(Area.Occurred,Call.Type.Description) %>%
+  dplyr::summarise(count = n())
+```
+
+```{r}
+library(corrplot)
+cor(Police)
+```
+
+```{r}
+library(DataExplorer)
+```
+
+```{r}
+plot_missing(Police)
+```
+
+```{r}
+plot_histogram(Police)
+```
+
+```{r}
+plot_bar(Police)
+```
+
+```{r}
+plot_str(Police)
+```
+
+```{r}
+plot_intro(Police)
+```
+
+```{r}
+
+```
+
